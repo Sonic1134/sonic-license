@@ -28,6 +28,21 @@ def save_licenses(data):
     os.replace(temp_file, LICENSE_FILE)
 
 
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "status": "ok",
+        "service": "Sonic License Server"
+    }), 200
+
+
+@app.route("/licenses", methods=["GET"])
+def list_licenses():
+    with LOCK:
+        licenses = load_licenses()
+    return jsonify(licenses), 200
+
+
 @app.route("/verify", methods=["POST"])
 def verify_license():
     data = request.get_json(silent=True) or {}
@@ -79,18 +94,6 @@ def verify_license():
             "status": status,
             "message": "Max antal aktiveringar uppnått"
         }), 200
-
-
-@app.route("/licenses", methods=["GET"])
-def list_licenses():
-    with LOCK:
-        licenses = load_licenses()
-    return jsonify(licenses), 200
-
-
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"status": "ok", "service": "Sonic License Server"}), 200
 
 
 if __name__ == "__main__":
