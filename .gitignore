@@ -1,0 +1,16 @@
+.venv/
+.idea/
+__pycache__/
+*.pyc
+
+build/
+dist/
+installer/Output/
+
+data/backups/
+
+*.log
+
+app/licenses.json.py
+Procfile.py
+requirements.txt.py

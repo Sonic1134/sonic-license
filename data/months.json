@@ -1,0 +1,260 @@
+{
+  "2026-03": {
+    "name": "Mars 2026",
+    "rows": [
+      {
+        "id": "r1",
+        "section": "INKOMST",
+        "category": "Min Lön",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r2",
+        "section": "INKOMST",
+        "category": "Sambos Lön",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r3",
+        "section": "INKOMST",
+        "category": "Barnbidrag",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r4",
+        "section": "INKOMST",
+        "category": "Övrig Inkomst",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r5",
+        "section": "MATKONTO",
+        "category": "Matkortet",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r6",
+        "section": "MATKONTO",
+        "category": "Övrigt Mat",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r7",
+        "section": "FRITID",
+        "category": "Träningskort",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r8",
+        "section": "FRITID",
+        "category": "Föreningsavgift",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r9",
+        "section": "KREDITER",
+        "category": "Mitt Kreditkort",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r10",
+        "section": "KREDITER",
+        "category": "Övrigt Krediter",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r11",
+        "section": "BOENDE",
+        "category": "Lån",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r12",
+        "section": "BOENDE",
+        "category": "Månadsavgift",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r13",
+        "section": "BOENDE",
+        "category": "El Nätavgift",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r14",
+        "section": "BOENDE",
+        "category": "El Elhandel",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r15",
+        "section": "BOENDE",
+        "category": "Vatten",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r16",
+        "section": "BOENDE",
+        "category": "Sopor",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r17",
+        "section": "BOENDE",
+        "category": "Hemförsäkring",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r27",
+        "section": "BOENDE",
+        "category": "Övrigt Boende",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r18",
+        "section": "MEDIA",
+        "category": "Mobil",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r19",
+        "section": "MEDIA",
+        "category": "Bredband",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r20",
+        "section": "MEDIA",
+        "category": "Tv-streaming; Netflix",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r21",
+        "section": "MEDIA",
+        "category": "Tv-streaming: Viaplay",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r22",
+        "section": "MEDIA",
+        "category": "Tv-streaming: TV4",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r28",
+        "section": "MEDIA",
+        "category": "Övrigt Media",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r23",
+        "section": "TRANSPORT",
+        "category": "Kort kollektivtrafik",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r24",
+        "section": "TRANSPORT",
+        "category": "Bil: Drivmedel",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r25",
+        "section": "TRANSPORT",
+        "category": "Bil: Reparationer och service",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r26",
+        "section": "TRANSPORT",
+        "category": "Bil: Skatt och försäkring",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r29",
+        "section": "TRANSPORT",
+        "category": "Övrigt Transport",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r30",
+        "section": "SPARANDE",
+        "category": "Sparkontot",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r31",
+        "section": "SPARANDE",
+        "category": "Fonder",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r32",
+        "section": "SPARANDE",
+        "category": "Övrigt Sparande",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r33",
+        "section": "OVRIGT",
+        "category": "Sommarstugan",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r34",
+        "section": "OVRIGT",
+        "category": "Sommarstgan: El Nätavgift",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r35",
+        "section": "OVRIGT",
+        "category": "Sommarstugan: El Elhandel",
+        "actual": 0.0,
+        "hidden": false
+      },
+      {
+        "id": "r36",
+        "section": "OVRIGT",
+        "category": "Övrigt Övrigt",
+        "actual": 0.0,
+        "hidden": false
+      }
+    ],
+    "next_row_id": 37
+  }
+}

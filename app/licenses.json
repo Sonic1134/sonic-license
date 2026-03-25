@@ -1,0 +1,9 @@
+{
+    "SONICPRO-GP1J-UT0E-DHWU": {
+        "status": "PRO",
+        "max_activations": 1,
+        "activated_machines": [
+            "a26bcefc9f20a6ee58e16c9ab5f2253ef289dbb847a2705300d9bad36b2a59a7"
+        ]
+    }
+}
