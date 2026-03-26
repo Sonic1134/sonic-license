@@ -1,58 +1,35 @@
 import os
-import json
-import random
-import string
+import requests
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LICENSE_FILE = os.path.join(BASE_DIR, "app", "licenses.json")
-
-
-def load_licenses():
-    if not os.path.exists(LICENSE_FILE):
-        return {}
-
-    try:
-        with open(LICENSE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def save_licenses(data):
-    temp_file = LICENSE_FILE + ".tmp"
-    with open(temp_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    os.replace(temp_file, LICENSE_FILE)
-
-
-def random_block(length=4):
-    chars = string.ascii_uppercase + string.digits
-    return "".join(random.choices(chars, k=length))
-
-
-def generate_license_key():
-    return f"SONICPRO-{random_block()}-{random_block()}-{random_block()}"
+LICENSE_SERVER_URL = "https://web-production-0746.up.railway.app"
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "").strip()
 
 
 def create_license(status="PRO", max_activations=2):
-    licenses = load_licenses()
+    if not ADMIN_SECRET:
+        raise RuntimeError("ADMIN_SECRET saknas i miljövariablerna")
 
-    while True:
-        key = generate_license_key()
-        if key not in licenses:
-            break
+    response = requests.post(
+        f"{LICENSE_SERVER_URL}/create-license",
+        headers={"X-Admin-Secret": ADMIN_SECRET},
+        json={
+            "status": status,
+            "max_activations": max_activations
+        },
+        timeout=10
+    )
 
-    licenses[key] = {
-        "status": status,
-        "max_activations": max_activations,
-        "activated_machines": []
-    }
+    data = response.json()
 
-    save_licenses(licenses)
-    return key
+    if response.status_code != 200 or not data.get("success"):
+        raise RuntimeError(f"Kunde inte skapa licens: {data}")
+
+    return data
 
 
 if __name__ == "__main__":
-    new_key = create_license(status="PRO", max_activations=1)
+    result = create_license(status="PRO", max_activations=2)
     print("Ny licens skapad:")
-    print(new_key)
+    print("Nyckel:", result["license_key"])
+    print("Status:", result["status"])
+    print("Max aktiveringar:", result["max_activations"])

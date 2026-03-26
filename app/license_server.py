@@ -1,31 +1,58 @@
 from flask import Flask, request, jsonify
+from psycopg import connect
+from psycopg.rows import dict_row
 import os
 import json
-import threading
+import secrets
+import string
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LICENSE_FILE = os.path.join(BASE_DIR, "licenses.json")
-LOCK = threading.Lock()
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "").strip()
 
 
-def load_licenses():
-    if not os.path.exists(LICENSE_FILE):
-        return {}
-
-    try:
-        with open(LICENSE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+def get_conn():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL saknas")
+    return connect(DATABASE_URL, row_factory=dict_row)
 
 
-def save_licenses(data):
-    temp_file = LICENSE_FILE + ".tmp"
-    with open(temp_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-    os.replace(temp_file, LICENSE_FILE)
+def init_db():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS licenses (
+                    license_key TEXT PRIMARY KEY,
+                    status TEXT NOT NULL DEFAULT 'PRO',
+                    max_activations INTEGER NOT NULL DEFAULT 2,
+                    activated_machines JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+        conn.commit()
+
+
+def generate_license_key():
+    chars = string.ascii_uppercase + string.digits
+    groups = ["".join(secrets.choice(chars) for _ in range(4)) for _ in range(4)]
+    return "SONICPRO-" + "-".join(groups)
+
+
+def require_admin_secret():
+    provided = request.headers.get("X-Admin-Secret", "").strip()
+    return bool(ADMIN_SECRET) and provided == ADMIN_SECRET
+
+
+def get_license(license_key):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT license_key, status, max_activations, activated_machines, created_at
+                FROM licenses
+                WHERE license_key = %s
+            """, (license_key,))
+            return cur.fetchone()
 
 
 @app.route("/", methods=["GET"])
@@ -36,19 +63,57 @@ def home():
     }), 200
 
 
-@app.route("/licenses", methods=["GET"])
-def list_licenses():
-    with LOCK:
-        licenses = load_licenses()
-    return jsonify(licenses), 200
+@app.route("/create-license", methods=["POST"])
+def create_license():
+    if not require_admin_secret():
+        return jsonify({
+            "success": False,
+            "message": "Otillåten begäran"
+        }), 403
+
+    data = request.get_json(silent=True) or {}
+    status = str(data.get("status", "PRO")).strip().upper() or "PRO"
+
+    try:
+        max_activations = int(data.get("max_activations", 2))
+    except Exception:
+        max_activations = 2
+
+    if max_activations < 1:
+        max_activations = 1
+
+    while True:
+        key = generate_license_key()
+        if not get_license(key):
+            break
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO licenses (license_key, status, max_activations, activated_machines)
+                VALUES (%s, %s, %s, %s::jsonb)
+            """, (
+                key,
+                status,
+                max_activations,
+                json.dumps([])
+            ))
+        conn.commit()
+
+    return jsonify({
+        "success": True,
+        "license_key": key,
+        "status": status,
+        "max_activations": max_activations
+    }), 200
 
 
 @app.route("/verify", methods=["POST"])
 def verify_license():
     data = request.get_json(silent=True) or {}
 
-    key = (data.get("license_key") or "").strip()
-    machine_id = (data.get("machine_id") or "").strip()
+    key = str(data.get("license_key", "")).strip().upper()
+    machine_id = str(data.get("machine_id", "")).strip()
 
     if not key or not machine_id:
         return jsonify({
@@ -56,49 +121,109 @@ def verify_license():
             "message": "license_key och machine_id krävs"
         }), 400
 
-    with LOCK:
-        licenses = load_licenses()
+    license_info = get_license(key)
 
-        if key not in licenses:
-            return jsonify({
-                "valid": False,
-                "message": "Licensen finns inte"
-            }), 200
-
-        license_info = licenses[key]
-        status = license_info.get("status", "TRIAL")
-        max_activations = int(license_info.get("max_activations", 2))
-        activated_machines = license_info.get("activated_machines", [])
-
-        if machine_id in activated_machines:
-            return jsonify({
-                "valid": True,
-                "status": status,
-                "message": "Licensen är redan aktiverad på denna dator"
-            }), 200
-
-        if len(activated_machines) < max_activations:
-            activated_machines.append(machine_id)
-            license_info["activated_machines"] = activated_machines
-            licenses[key] = license_info
-            save_licenses(licenses)
-
-            return jsonify({
-                "valid": True,
-                "status": status,
-                "message": "Licensen aktiverades och sparades"
-            }), 200
-
+    if not license_info:
         return jsonify({
             "valid": False,
-            "status": status,
-            "message": "Max antal aktiveringar uppnått"
+            "message": "Licensen finns inte"
         }), 200
 
+    status = str(license_info.get("status", "TRIAL")).upper()
+    max_activations = int(license_info.get("max_activations", 2))
+    activated_machines = license_info.get("activated_machines") or []
 
-if __name__ == "__main__":
-    if not os.path.exists(LICENSE_FILE):
-        save_licenses({})
+    if machine_id in activated_machines:
+        return jsonify({
+            "valid": True,
+            "status": status,
+            "message": "Licensen är redan aktiverad på denna dator"
+        }), 200
 
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    if len(activated_machines) < max_activations:
+        activated_machines.append(machine_id)
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE licenses
+                    SET activated_machines = %s::jsonb
+                    WHERE license_key = %s
+                """, (
+                    json.dumps(activated_machines),
+                    key
+                ))
+            conn.commit()
+
+        return jsonify({
+            "valid": True,
+            "status": status,
+            "message": "Licensen aktiverades och sparades"
+        }), 200
+
+    return jsonify({
+        "valid": False,
+        "status": status,
+        "message": "Max antal aktiveringar uppnått"
+    }), 200
+
+
+@app.route("/reset-license", methods=["POST"])
+def reset_license():
+    if not require_admin_secret():
+        return jsonify({
+            "success": False,
+            "message": "Otillåten begäran"
+        }), 403
+
+    data = request.get_json(silent=True) or {}
+    key = str(data.get("license_key", "")).strip().upper()
+
+    if not key:
+        return jsonify({
+            "success": False,
+            "message": "license_key krävs"
+        }), 400
+
+    if not get_license(key):
+        return jsonify({
+            "success": False,
+            "message": "Licensen finns inte"
+        }), 404
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE licenses
+                SET activated_machines = '[]'::jsonb
+                WHERE license_key = %s
+            """, (key,))
+        conn.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Licensen återställd"
+    }), 200
+
+
+@app.route("/licenses", methods=["GET"])
+def list_licenses():
+    if not require_admin_secret():
+        return jsonify({
+            "success": False,
+            "message": "Otillåten begäran"
+        }), 403
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT license_key, status, max_activations, activated_machines, created_at
+                FROM licenses
+                ORDER BY created_at DESC
+            """)
+            rows = cur.fetchall()
+
+    return jsonify(rows), 200
+
+
+init_db()

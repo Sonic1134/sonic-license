@@ -1,16 +1,35 @@
-.venv/
-.idea/
+# Python
 __pycache__/
 *.pyc
+*.pyo
 
+# Virtual env
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Build
 build/
 dist/
-installer/Output/
+installer/output/
 
-data/backups/
-
+# Logs
 *.log
 
-app/licenses.json.py
-Procfile.py
-requirements.txt.py
+# App data
+data/
+!data/logo.png
+data/backups/
+
+# Local license
+local_license.json
+
+# Server files (optional)
+app/licenses.json
+
+# System
+.DS_Store
+Thumbs.db

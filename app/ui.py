@@ -24,6 +24,8 @@ def resource_path(relative_path):
 APP_NAME = "Plånbokens Månadsplanering"
 APP_VERSION = "4.0"
 
+LICENSE_SERVER_URL = "https://web-production-0746.up.railway.app"
+
 APP_BG = "#12385F"
 
 SIDEBAR_BG = "#262A63"
@@ -132,6 +134,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 MONTHS_FILE = DATA_DIR / "months.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
+LOCAL_LICENSE_FILE = APP_DATA_DIR / "local_license.json"
+
 BACKUP_DIR = DATA_DIR / "backups"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -901,12 +905,11 @@ class BudgetApp(tk.Tk):
         self.month_label_map = {}
 
         self.settings = self._load_settings()
-
         self.months_data = self._load_months()
-        self.settings["license_type"] = "Trial"
-        self.settings["license_key"] = ""
+
         self._ensure_settings_defaults()
         self._ensure_trial_started()
+        self._auto_load_saved_license()
         self._remove_empty_duplicate_months()
         self._save_all_data()
 
@@ -942,10 +945,86 @@ class BudgetApp(tk.Tk):
         except Exception:
             return False
 
+    def _get_local_license_path(self):
+        return LOCAL_LICENSE_FILE
+
+    def _save_local_license(self, license_key, status):
+        data = {
+            "license_key": str(license_key).strip().upper(),
+            "status": str(status).strip().upper(),
+            "machine_id": self._get_machine_id(),
+            "saved_at": datetime.now().isoformat()
+        }
+
+        try:
+            save_json(self._get_local_license_path(), data)
+        except Exception as e:
+            print("Kunde inte spara lokal licens:", e)
+
+    def _load_local_license(self):
+        data = load_json(self._get_local_license_path(), None)
+        if isinstance(data, dict) and data.get("license_key"):
+            return data
+
+        # Fallback för äldre installationer som redan sparat licens i settings
+        if self.settings.get("license_type") == "PRO" and self.settings.get("license_key"):
+            return {
+                "license_key": self.settings.get("license_key", ""),
+                "status": "PRO",
+                "machine_id": self.settings.get("activated_machine_id", "")
+            }
+
+        return None
+
+    def _clear_local_license(self):
+        try:
+            path = self._get_local_license_path()
+            if Path(path).exists():
+                Path(path).unlink()
+        except Exception as e:
+            print("Kunde inte ta bort lokal licens:", e)
+
+    def _auto_load_saved_license(self):
+        saved = self._load_local_license()
+        if not saved:
+            return
+
+        key = str(saved.get("license_key", "")).strip().upper()
+        if not key:
+            return
+
+        valid, result = self._validate_license_key(key)
+        message = str(result.get("message", ""))
+
+        if valid:
+            status = str(result.get("status", "PRO")).upper()
+            self.settings["license_type"] = status
+            self.settings["license_key"] = key
+            self.settings["activated_machine_id"] = self._get_machine_id()
+            self._save_local_license(key, status)
+            self._save_settings()
+            print("Sparad licens verifierad:", status)
+            return
+
+        # Om servern tillfälligt inte svarar, behåll lokal licensstatus tills vidare
+        if "Kunde inte ansluta till licensservern" in message and saved.get("status", "").upper() == "PRO":
+            self.settings["license_type"] = "PRO"
+            self.settings["license_key"] = key
+            self.settings["activated_machine_id"] = self._get_machine_id()
+            self._save_settings()
+            print("Licensservern kunde inte nås. Behåller sparad PRO-status tillfälligt.")
+            return
+
+        self.settings["license_type"] = "Trial"
+        self.settings["license_key"] = ""
+        self.settings["activated_machine_id"] = ""
+        self._clear_local_license()
+        self._save_settings()
+        print("Sparad licens är inte längre giltig.")
 
     def _validate_license_key(self, key):
         try:
-            url = "http://127.0.0.1:5000/verify"
+            url = f"{LICENSE_SERVER_URL}/verify"
 
             payload = {
                 "license_key": key.strip().upper(),
@@ -953,17 +1032,12 @@ class BudgetApp(tk.Tk):
             }
 
             response = requests.post(url, json=payload, timeout=5)
-
-            if response.status_code != 200:
-                return False
-
             data = response.json()
 
-            return data.get("valid", False)
+            return data.get("valid", False), data
 
-        except Exception:
-            return False
-
+        except Exception as e:
+            return False, {"message": f"Kunde inte ansluta till licensservern: {e}"}
 
     def _get_machine_id(self):
         raw = str(uuid.getnode()) + os.getenv("COMPUTERNAME", "")
@@ -1028,8 +1102,11 @@ class BudgetApp(tk.Tk):
         if not self.settings.get("license_type"):
             self.settings["license_type"] = "Trial"
 
-        if not self.settings.get("license_key"):
+        if "license_key" not in self.settings:
             self.settings["license_key"] = ""
+
+        if self.settings.get("license_type") == "PRO":
+            return
 
         if not self.settings.get("first_run_date"):
             today = datetime.now().date()
@@ -1873,7 +1950,6 @@ class BudgetApp(tk.Tk):
             )
 
     def create_new_month(self):
-        # 🔒 Begränsning i Trial (max 6 månader)
         if self.settings.get("license_type") != "PRO":
             if len(self.months_data) >= 6:
                 messagebox.showwarning(
@@ -1911,7 +1987,6 @@ class BudgetApp(tk.Tk):
 
         month_key = f"{year_text}-{month_number}"
 
-        # 🚫 Dubbelkontroll (key)
         if month_key in self.months_data:
             messagebox.showwarning(
                 "Månad finns redan",
@@ -1920,7 +1995,6 @@ class BudgetApp(tk.Tk):
             )
             return
 
-        # 🚫 Dubbelkontroll (namn)
         for existing in self.months_data.values():
             if str(existing.get("name", "")).strip().lower() == pretty_name.lower():
                 messagebox.showwarning(
@@ -1930,7 +2004,6 @@ class BudgetApp(tk.Tk):
                 )
                 return
 
-        # ✅ Skapa månad
         self.months_data[month_key] = self._create_empty_month_data(pretty_name)
         self.settings["current_month"] = month_key
 
@@ -2423,21 +2496,29 @@ class BudgetApp(tk.Tk):
 
         key = key.strip().upper()
 
-        if self._validate_license_key(key):
-            self.settings["license_type"] = "PRO"
+        valid, result = self._validate_license_key(key)
+
+        if valid:
+            status = str(result.get("status", "PRO")).upper()
+
+            self.settings["license_type"] = status
             self.settings["license_key"] = key
             self.settings["activated_machine_id"] = self._get_machine_id()
+
+            self._save_local_license(key, status)
             self._save_settings()
 
             messagebox.showinfo(
                 "Licens",
-                "Licens aktiverad! Du har nu PRO-versionen.",
+                result.get("message", "Licens aktiverad! Du har nu PRO-versionen."),
                 parent=self
             )
+
+            self._rebuild_main_view()
         else:
             messagebox.showerror(
                 "Fel",
-                "Ogiltig licensnyckel.",
+                result.get("message", "Ogiltig licensnyckel."),
                 parent=self
             )
 
@@ -2487,20 +2568,13 @@ class BudgetApp(tk.Tk):
 
             self.settings = self._load_settings()
             self.months_data = self._load_months()
-            self.settings = self._load_settings()
-            self.months_data = self._load_months()
 
-            # 🔥 Tvinga ny trial (temporärt)
-            today = datetime.now().date()
-            expiry = today + timedelta(days=75)
-
-            self.settings["license_type"] = "Trial"
-            self.settings["license_key"] = ""
-            self.settings["first_run_date"] = today.isoformat()
-            self.settings["expiry_date"] = expiry.isoformat()
             self._ensure_settings_defaults()
             self._ensure_trial_started()
+            self._auto_load_saved_license()
             self._remove_empty_duplicate_months()
+            self._save_all_data()
+
             self._rebuild_main_view()
             messagebox.showinfo("Backup", "Senaste backup återställd.", parent=self)
         except Exception as exc:
